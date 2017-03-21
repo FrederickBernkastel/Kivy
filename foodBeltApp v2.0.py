@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import kivy
 kivy.require('1.8.0')
 from kivy.app import App
@@ -9,7 +10,9 @@ from kivy.uix.image import Image
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.stacklayout import StackLayout
+from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.behaviors import ButtonBehavior
+from kivy.properties import BooleanProperty
 from firebase import firebase
 import datetime
 
@@ -18,26 +21,34 @@ url = "https://internetofthings-f6256.firebaseio.com/" # URL to Firebase databas
 token = "CRCZ9IiX8uZCHPuD0dOYJ1XO2rSKjYzEAeUqrRPt" # unique token used for authentication
 firebase = firebase.FirebaseApplication(url, token)
 highTemp = 320
-food_dic = {}
+highHum = 80
+food_list = []
 dayMonthList = [31,28,31,30,31,30,31,31,30,31,30,31]
-high_temp_img,refresh_img,alarm_on_img,alarm_off_img,background_img = "high_temp.png","refresh.png","alarm_on.png","alarm_off.png","background.jpg"
+high_temp_img = "high_temp.png"
+low_temp_img = "low_temp.png"
+high_hum_img = "high_hum.png"
+low_hum_img = "low_hum.png"
+fresh_img = "fresh.png"
+refresh_img = "refresh.png"
+alarm_on_img = "alarm_on.png"
+alarm_off_img = "alarm_off.png"
+background_img = "background.jpg"
+expiring_img = "expiring.png"
+expired_img = "expired.png"
 
 #Testing data
-food_dic_test= {"001":["Celery","050317",False,[1]],"002":["Milk","100317",False,[300,327,330]],
-                "003":["Carrot","011218",False,[300,302]]}
+food_list_test= [["Celery","050317",True],["Will to Live","100317",None],["Carrot","011218",None],["Potato","121219",None]]
+temperature_list,humidity_list = [1],[1]
+
 ############### debug
-#firebase.put("/","food",food_dic_test)  
-try:
-    food_dic = firebase.get('/food')
-    day,month,year = str(now.day),str(now.month),str(now.year - 2000)
-    while len(day) < 2:
-        day = "0" + day
-    while len(month) < 2:
-        month = "0" + month
-    food_dic["005"][1] = day+month+year
-    firebase.put('/','food',food_dic)
-except:
-    pass
+#firebase.put("/","food",food_list_test)  
+day,month,year = str(now.day),str(now.month),str(now.year - 2000)
+while len(day) < 2:
+    day = "0" + day
+while len(month) < 2:
+    month = "0" + month
+food_list_test.append(["Hopes and Dreams",day+month+year,None])
+firebase.put('/','food',[temperature_list,humidity_list,food_list_test])
 ############## debug
 
 ############################# Main Functions ##################################
@@ -51,19 +62,25 @@ def is_high_temp(tempList):
         if counter > 1:
             return True
     return False
-def update_food_dic(keyID,itemIndex,newItem):
-    for key,item in zip(food_dic.keys(),food_dic.values()):
-        if keyID == key:
-            item[itemIndex] = newItem
+def update_food_list(itemIndex,newItem):
+    food_list[itemIndex] = newItem
 def update_firebase():
-    firebase.put('/','food',food_dic)
+    firebase.put('/','food',[temperature_list,humidity_list,food_list])
 def connected():
     try:
-        food_dic = firebase.get('/food')
-        
+        firebase_list = firebase.get('/food')
+        global temperature_list,humidity_list,food_list
+        temperature_list = firebase_list[0]
+        humidity_list = firebase_list[1]
+        food_list = firebase_list[2]
+        for food in food_list:
+            if len(food)==2:
+                food.append(None)
         print "connected"
         return True
-    except:
+    except Exception as e:
+        print firebase_list
+        print "error", e
         return False
 def is_leap_year(year):
     if year%4==0:
@@ -77,32 +94,10 @@ def is_leap_year(year):
 def time_to_expiry(date):
     dayNow,monthNow,yearNow = now.day, now.month,now.year
     dayExp,monthExp,yearExp = int(date[:2]),int(date[2:4]),int(date[4:])+2000
-    if yearNow < yearExp or monthNow < monthExp:
-        numOfDays,monthNow = dayMonthList[monthNow-1] - dayNow, monthNow + 1
-    else:
-        numOfDays= 0
     
-    
-    while yearNow < yearExp:
-        if is_leap_year(yearNow):
-            dayMonthList[1] = 29
-        else:
-            dayMonthList[1] = 28
-        numOfDays += sum(dayMonthList[monthNow-1:])
-        monthNow = 1
-        yearNow+=1
-    if is_leap_year(yearNow):
-        dayMonthList[1] = 29
-    else:
-        dayMonthList[1] = 28
-    if monthNow < monthExp:
-        numOfDays += sum(dayMonthList[monthNow - 1:monthExp-1])
-        numOfDays += dayExp
-    elif monthNow == monthExp:
-        numOfDays += dayExp - dayNow
-    dayNow,monthNow,yearNow = now.day, now.month,now.year
-        
+    numOfDays = (datetime.date(yearExp,monthExp,dayExp) - datetime.date(yearNow,monthNow,dayNow)).days
     singular = ""
+    
     if yearNow > yearExp or (yearNow == yearExp and (monthNow > monthExp or monthNow == monthExp and dayNow > dayExp) ):
         return "Expired"
     elif dayNow == dayExp and monthNow == monthExp and yearNow == yearExp:
@@ -118,12 +113,11 @@ def time_to_expiry(date):
     elif numOfDays >= 1:
         if numOfDays > 1: singular = "s"
         return "%d day%s" %(numOfDays,singular)
-    
+def near_expiry(duration_str):
+    return duration_str[len(duration_str)-3:] == 'day' or duration_str[len(duration_str)-4:]== 'days'
     
 ############################# Main Functions ##################################
-################################ Callbacks ####################################
 
-################################ Callbacks ####################################
 ################################# Classes #####################################
 ########## Screens ##################
 class MyScreenManager(ScreenManager):
@@ -135,12 +129,39 @@ class ConnErrorScreen(Screen):
         self.name = "connerror"
         self.add_widget(Label(text = "Error connecting to firebase, please check connection and restart App"))
 
-        
 class HomeScreen(Screen):
-    
     def __init__(self,**kwargs):
         super(HomeScreen,self).__init__(**kwargs)
         self.name = "home"
+        if not connected():
+            self.add_widget(ConnErrorScreen())
+            return
+        self.root = GridLayout(rows = 6)
+        if temperature_list[-1] > highTemp:
+            self.root.add_widget(Image(source = high_temp_img,size_hint = (.5,.2)))
+        else:
+            self.root.add_widget(Image(source = low_temp_img,size_hint = (.5,.2)))
+        self.root.add_widget(Label(text = "Temperature: %d "%(temperature_list[-1]) + u'\N{DEGREE SIGN}'+ 'C',size_hint = (.5,.1),color=[0,0,0,1]))
+        if humidity_list[-1] > highHum:
+            self.root.add_widget(Image(source = high_hum_img,size_hint = (.5,.2)))
+        else:
+            self.root.add_widget(Image(source = low_hum_img,size_hint = (.5,.2)))
+        self.root.add_widget(Label(text="Humidity: %d %%"%(humidity_list[-1]),size_hint=(.5,.1),color=[0,0,0,1]))
+        if "Expired" in [time_to_expiry(food[1]) for food in food_list]:
+            self.root.add_widget(Image(source = expired_img,size_hint=(.5,.2)))
+        else:
+            self.root.add_widget(Image(source = fresh_img,size_hint=(.5,.2)))
+        self.root.add_widget(FoodButton(text="View food",size_hint=(.5,.2),color=[0,0,0,1]))
+        self.add_widget(Image(source = background_img,size_hint=(1,1),keep_ratio = False,allow_stretch=True))
+        self.add_widget(self.root)
+    
+    
+        
+
+class FoodScreen(Screen):
+    def __init__(self,**kwargs):
+        super(FoodScreen,self).__init__(**kwargs)
+        self.name = "food"
         if not connected():
             self.add_widget(ConnErrorScreen())
             return
@@ -150,52 +171,78 @@ class HomeScreen(Screen):
                             do_scroll_y = True,
                             size_hint = (1,.8),
                             id = "food_scroll")
-        self.headers = GridLayout(cols = 4, size_hint=(1,.1))
-        self.headers.add_widget(Label(text="Name",size_hint=(.2,1),color=[0,0,0,1]))
-        self.headers.add_widget(Label(text="Time until Expiry",size_hint=(.3,1),color=[0,0,0,1]))
+        # Headers
+        self.headers = GridLayout(cols = 3, size_hint=(1,.1))
+        self.headers.add_widget(Label(text="Name",size_hint=(.4,1),color=[0,0,0,1]))
+        self.headers.add_widget(Label(text="Time until Expiry",size_hint=(.4,1),color=[0,0,0,1]))
         self.headers.add_widget(RefreshButton(source = refresh_img,size_hint=(.2,1)))
-        self.headers.add_widget(Button(text="Remove",size_hint=(.3,1),color=[0,0,0,1]))
+        
+        # MainGrid containing everything
         self.mainGrid = GridLayout(rows = 3)
-        self.mainGrid.add_widget(self.headers)
-        self.mainGrid.add_widget(self.scrollView)
-        self.mainGrid.add_widget(AddButton(text = "Add new entry",size_hint=(1,.1),color=[0,0,0,1]))
-        self.add_widget(Image(source = background_img,size_hint=(1,1),keep_ratio = False,allow_stretch=True))
-        self.add_widget(self.mainGrid)
-        self.foodGrid = GridLayout(cols=4,row_force_default=True, row_default_height=40)
-        for key,item in zip(food_dic.keys(),food_dic.values()):
-            self.foodGrid.add_widget(Label(text = item[0],size_hint=(.2,.1),color=[0,0,0,1]))
-            self.foodGrid.add_widget(Label(text = time_to_expiry(item[1]),size_hint=(.3,.1),color=[0,0,0,1]))
-            if is_high_temp(item[3]):
-                self.foodGrid.add_widget(Image(source = high_temp_img,size_hint=(.2,.1)))
+        
+        # FoodGrid containing food items
+        self.foodGrid = GridLayout(cols=3,row_force_default=True, row_default_height=40)
+        for food in food_list:
+            self.foodGrid.add_widget(Label(text = food[0],size_hint=(.4,.1),color=[0,0,0,1]))
+            self.foodGrid.add_widget(Label(text = time_to_expiry(food[1]),size_hint=(.4,.1),color=[0,0,0,1]))
+            if near_expiry(time_to_expiry(food[1])):
+                self.foodGrid.add_widget(Image(source = expiring_img,size_hint=(.2,.1)))
+            elif time_to_expiry(food[1]) == "Expired":
+                self.foodGrid.add_widget(Image(source = expired_img,size_hint=(.2,.1)))
             else:
                 self.foodGrid.add_widget(Label(text = "",size_hint=(.2,.1),color=[0,0,0,1]))
-            buzzerButton = BuzzerButton(size_hint=(.3,.1), id=key)
-            buzzerButton.pressed = item[2]
-            buzzerButton.change_image()
-            self.foodGrid.add_widget(buzzerButton)
         # Make sure the height is such that there is something to scroll.
         self.foodGrid.bind(minimum_height = self.foodGrid.setter('height'))
         self.scrollView.add_widget(self.foodGrid)
+        # Footer
+        self.footer = GridLayout(cols = 3,size_hint=(1,.1))
+        self.removeButton = Button(text="Remove",color=[0,0,0,1])
+        self.buzzerButton = BuzzerButton(source = alarm_on_img)
+        self.buzzerButton.bind(pressed = self.remove_buzzer)
+        self.addButton = AddButton(text = "Add new entry",color=[0,0,0,1])
+        self.footer.add_widget(self.removeButton)
+        if (True in [food[2] for food in food_list]):
+            self.removeButton.size_hint,self.buzzerButton.size_hint,self.addButton.size_hint =(.3,1),(.4,1),(.3,1)
+            self.footer.add_widget(self.buzzerButton)
+        else:
+            self.removeButton.size_hint,self.addButton.size_hint = (.5,1),(.5,1)
+        self.footer.add_widget(self.addButton)
+        
+        
+        self.mainGrid.add_widget(self.headers)
+        self.mainGrid.add_widget(self.scrollView)
+        self.mainGrid.add_widget(self.footer)
+        self.add_widget(Image(source = background_img,size_hint=(1,1),keep_ratio = False,allow_stretch=True))
+        self.add_widget(self.mainGrid)
+
+    def remove_buzzer(self,instance,value):
+        self.footer.remove_widget(self.buzzerButton)
+        self.removeButton.size_hint = (.5,1)
+        self.addButton.size_hint = (.5,1)
+
+
+
+
+
 
 class AddScreen(Screen):
-    validList = [False] * 3
+    validList = [False] * 2
     validateLabelList = []
-    textInputList = [0,0,0]
+    textInputList = [0,0]
     def __init__(self,**kwargs):
         super(AddScreen,self).__init__(**kwargs)
         self.name = "add"
         self.root = GridLayout(rows = 2)
         self.inputStack = StackLayout(orientation='lr-tb', size_hint=(1,.8))
-        self.inputStack.add_widget(Label(text="Tag ID",size_hint=(.3,.1),color=[0,0,0,1]))
-        self.inputStack.add_widget(Label(text="Name",size_hint=(.3,.1),color=[0,0,0,1]))
+        self.inputStack.add_widget(Label(text="Name",size_hint=(.6,.1),color=[0,0,0,1]))
         self.inputStack.add_widget(Label(text="Expiry Date",size_hint=(.4,.1),color=[0,0,0,1]))
-        for key,x_pos in zip(["tagid","name","expiry"],[.3,.3,.4]):
+        for key,x_pos in zip(["name","expiry"],[.6,.4]):
             textInput = TextInput(id = key + "input",
                           multiline = False,
                           size_hint=(x_pos,.1))
             textInput.bind(text=self.check_input)
             self.inputStack.add_widget(textInput)
-        for key,x_pos in zip(["tagid","name","expiry"],[.3,.3,.4]):
+        for key,x_pos in zip(["name","expiry"],[.6,.4]):
             validateLabel = ValidateLabel(id = key + "label",
                                   size_hint = (x_pos,.1),
                                   shorten = True,
@@ -204,73 +251,53 @@ class AddScreen(Screen):
             self.inputStack.add_widget(validateLabel)
         self.buttonStack = StackLayout(orientation='bt-lr', size_hint=(1,.2))
         self.root.add_widget(self.inputStack)
-        self.buttonStack.add_widget(HomeButton(text="Back",size_hint=(1,.5),color=[0,0,0,1]))
+        self.buttonStack.add_widget(FoodButton(text="Back",size_hint=(1,.5),color=[0,0,0,1]))
         self.root.add_widget(self.buttonStack)
         self.add_widget(Image(source = background_img,size_hint=(1,1),keep_ratio = False,allow_stretch=True))
         self.add_widget(self.root)
             
     def check_input(self,instance,text):
-        if instance.id == "tagidinput":
+        if instance.id == "nameinput":
             validListIndex = 0
-            if 0 < len(text) <= 3:
-                for char in text:
-                    if char not in '0123456789':
-                        self.validList[0] = False
-                        break
-                else:
-                    if int(text) in [int(key) for key in food_dic.keys()]:
-                        self.validList[0] = None
-                    elif int(text) != 0:
-                        self.validList[0] = True
-                    else:
-                        self.validList[0] = False
-                
-            else: self.validList[0] = False
-
-        elif instance.id == "nameinput":
-            validListIndex = 1
             for char in text:
                 if char not in '0123456789qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM ':
-                    self.validList[1] = False
+                    self.validList[0] = False
                     break
             else:
                 if text != '':
-                    self.validList[1] = True
+                    self.validList[0] = True
                 else:
-                    self.validList[1] = False
+                    self.validList[0] = False
         elif instance.id == "expiryinput":
-            validListIndex = 2
+            validListIndex = 1
             if len(text) == 6:
                 for char in text:
                     if char not in '0123456789':
-                        self.validList[2] = False
+                        self.validList[1] = False
                         break
                 else:
                     day,month,year = int(text[:2]),int(text[2:4]),int(text[4:6])+2000
                     
                     if month>12 or month <= 0 or day > dayMonthList[month-1]: 
-                        self.validList[2] = False
+                        self.validList[1] = False
                     else:
                         #Check if input date is in the past or today
                         if (year < now.year) or (year == now.year and (month < now.month or month == now.month and day <= now.day)):
-                            self.validList[2] = False
+                            self.validList[1] = False
                         else:
-                            self.validList[2] = True
+                            self.validList[1] = True
             else:
-                self.validList[2] = False
+                self.validList[1] = False
                     
         else:
             return
         self.validateLabelList[validListIndex].update_text(self.validList[validListIndex])
         self.textInputList[validListIndex] = text
-        if self.validList[0] and validListIndex == 0:
-            while len(self.textInputList[0]) < 3:
-                self.textInputList[0] = '0' + self.textInputList[0]
         try:
             self.buttonStack.remove_widget(self.addValidateButton)
         except:
             pass
-        if self.validList[0]==self.validList[1]==self.validList[2]==True:
+        if self.validList[0]==self.validList[1]==True:
             self.addValidateButton = AddValidateButton(text = "Add Item to Firebase",size_hint = (1,.5),color=[0,0,0,1])
             self.addValidateButton.textInputList = self.textInputList
             self.buttonStack.add_widget(self.addValidateButton)
@@ -284,7 +311,7 @@ class BlankScreen(Screen):
 
 ########## Widgets ############################
 class BuzzerButton(ButtonBehavior,Image):
-    pressed = None
+    pressed = BooleanProperty(False)
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
              self.pressed = not self.pressed
@@ -292,21 +319,14 @@ class BuzzerButton(ButtonBehavior,Image):
                 sm.transition.direction = 'left'
                 sm.current = "connerror"
                 return True
-             self.change_image()
-             update_food_dic(self.id,2,self.pressed)
-             print food_dic
-             update_firebase()
+             for food in food_list:
+                if food[2] == True:
+                    food[2] == False
+             update_firebase() 
              return True
         return super(BuzzerButton, self).on_touch_down(touch)
         
-    def change_image(self):
-        print self.pressed
-        if self.pressed:
-            self.color = [1,0,0,1]
-            self.source = alarm_on_img
-        else:
-            self.color = [0,1,0,1]
-            self.source = alarm_off_img
+
 class AddButton(Button):
     pressed = False
     def on_touch_down(self,touch):
@@ -340,31 +360,31 @@ class AddValidateButton(Button):
                     sm.transition.direction = 'down'
                     sm.current = "connerror"
                     return True
-                food_dic[self.textInputList[0]] = [self.textInputList[1],self.textInputList[2],False,[1]]
+                food_list.append([self.textInputList[0],self.textInputList[1],None])
                 update_firebase()
                 sm.transition.direction = 'left'
-                sm.remove_widget(sm.get_screen("home"))
-                sm.add_widget(HomeScreen())
-                sm.current = "home"
+                sm.remove_widget(sm.get_screen("food"))
+                sm.add_widget(FoodScreen())
+                sm.current = "food"
                 sm.remove_widget(sm.get_screen("add"))
                 sm.add_widget(AddScreen())
             return True
         return super(AddValidateButton, self).on_touch_up(touch)
-class HomeButton(Button):
+class FoodButton(Button):
     pressed = False
     def on_touch_down(self,touch):
         if self.collide_point(*touch.pos):
             self.pressed = True
             return True
-        return super(HomeButton, self).on_touch_down(touch)
+        return super(FoodButton, self).on_touch_down(touch)
     def on_touch_up(self,touch):
         if self.pressed:
             self.pressed = False
             if self.collide_point(*touch.pos):
-                sm.transition.direction = 'right'
-                sm.current = 'home'
+                sm.transition.direction = 'left'
+                sm.current = 'food'
             return True
-        return super(HomeButton,self).on_touch_up(touch)
+        return super(FoodButton,self).on_touch_up(touch)
 class RefreshButton(ButtonBehavior, Image):
     pressed = False
     def on_touch_down(self,touch):
@@ -378,10 +398,10 @@ class RefreshButton(ButtonBehavior, Image):
             if self.collide_point(*touch.pos):
                 sm.transition.direction = 'down'
                 sm.current = "blank"
-                sm.remove_widget(sm.get_screen("home"))
-                sm.add_widget(HomeScreen())
+                sm.remove_widget(sm.get_screen("food"))
+                sm.add_widget(FoodScreen())
                 sm.transition.direction = 'up'
-                sm.current = "home"
+                sm.current = "food"
                 
             return True
         return super(RefreshButton, self).on_touch_up(touch)
@@ -393,19 +413,14 @@ class ValidateLabel(Label):
         if valid:
             self.text = ""
         else:
-            if self.id == "tagidlabel":
-                if valid != None:
-                    self.text = "00X or 0XX or XXX"
-                else:
-                    self.text = "ID in use"
-            elif self.id == "namelabel":
+            if self.id == "namelabel":
                 self.text = "Alphanumeric"
             elif self.id == "expirylabel":
                 self.text = "ddmmyy" 
             else:
                 self.text == "Error in input"
             
-        
+
 ################################# Classes #####################################
 
 
@@ -414,6 +429,7 @@ class FoodBeltApp(App):
     def build(self):
         global sm
         sm.add_widget(HomeScreen())
+        sm.add_widget(FoodScreen())
         sm.add_widget(ConnErrorScreen())
         sm.add_widget(AddScreen())
         sm.add_widget(BlankScreen())
