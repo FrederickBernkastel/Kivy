@@ -196,16 +196,18 @@ class FoodScreen(Screen):
         self.scrollView.add_widget(self.foodGrid)
         # Footer
         self.footer = GridLayout(cols = 3,size_hint=(1,.1))
-        self.removeButton = Button(text="Remove",color=[0,0,0,1])
-        self.buzzerButton = BuzzerButton(source = alarm_on_img)
+        self.removeButton = Button(text="Remove",size_hint = (.3,1),color=[0,0,0,1])
+        self.buzzerButton = BuzzerButton(source = alarm_on_img,size_hint =(.4,1))
         self.buzzerButton.bind(pressed = self.remove_buzzer)
-        self.addButton = AddButton(text = "Add new entry",color=[0,0,0,1])
+        self.homeButton = HomeButton(text = "Home",size_hint=(.4,1),color=[0,0,0,1])
+        self.addButton = AddButton(text = "Add new entry",size_hint = (.3,1),color=[0,0,0,1])
+        
         self.footer.add_widget(self.removeButton)
+        
         if (True in [food[2] for food in food_list]):
-            self.removeButton.size_hint,self.buzzerButton.size_hint,self.addButton.size_hint =(.3,1),(.4,1),(.3,1)
             self.footer.add_widget(self.buzzerButton)
         else:
-            self.removeButton.size_hint,self.addButton.size_hint = (.5,1),(.5,1)
+            self.footer.add_widget(self.homeButton)
         self.footer.add_widget(self.addButton)
         
         
@@ -217,8 +219,9 @@ class FoodScreen(Screen):
 
     def remove_buzzer(self,instance,value):
         self.footer.remove_widget(self.buzzerButton)
-        self.removeButton.size_hint = (.5,1)
-        self.addButton.size_hint = (.5,1)
+        self.footer.remove_widget(self.addButton)
+        self.footer.add_widget(self.homeButton)
+        self.footer.add_widget(self.addButton)
 
 
 
@@ -370,6 +373,23 @@ class AddValidateButton(Button):
                 sm.add_widget(AddScreen())
             return True
         return super(AddValidateButton, self).on_touch_up(touch)
+
+class HomeButton(Button):
+    pressed = False
+    def on_touch_down(self,touch):
+        if self.collide_point(*touch.pos):
+            self.pressed = True
+            return True
+        return super(HomeButton, self).on_touch_down(touch)
+    def on_touch_up(self,touch):
+        if self.pressed:
+            self.pressed = False
+            if self.collide_point(*touch.pos):
+                sm.transition.direction = 'right'
+                sm.current = 'home'
+            return True
+        return super(HomeButton,self).on_touch_up(touch)
+    
 class FoodButton(Button):
     pressed = False
     def on_touch_down(self,touch):
