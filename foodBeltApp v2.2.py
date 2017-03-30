@@ -13,6 +13,7 @@ from kivy.uix.stacklayout import StackLayout
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.properties import BooleanProperty
+from kivy.graphics import Rectangle
 from firebase import firebase
 import datetime
 
@@ -35,6 +36,7 @@ alarm_off_img = "alarm_off.png"
 background_img = "background.jpg"
 expiring_img = "expiring.png"
 expired_img = "expired.png"
+highlight_img = "highlight.png"
 
 #Testing data
 food_list_test= [["Celery","050317",True],["Will to Live","100317",None],["Carrot","011218",None],["Potato","121219",None]]
@@ -180,17 +182,19 @@ class FoodScreen(Screen):
         # MainGrid containing everything
         self.mainGrid = GridLayout(rows = 3)
         
-        # FoodGrid containing food items
-        self.foodGrid = GridLayout(cols=3,row_force_default=True, row_default_height=40)
+        # FoodGrid containing FoodGrid rows containing food items
+        self.foodGrid = GridLayout(cols=3,row_force_default=True, row_default_height=50,size_hint_y=None)
+
         for food in food_list:
-            self.foodGrid.add_widget(Label(text = food[0],size_hint=(.4,.1),color=[0,0,0,1]))
-            self.foodGrid.add_widget(Label(text = time_to_expiry(food[1]),size_hint=(.4,.1),color=[0,0,0,1]))
+            self.foodGrid.add_widget(Label(text = food[0],size_hint=(.4,.2),color=[0,0,0,1]))
+            self.foodGrid.add_widget(Label(text = time_to_expiry(food[1]),size_hint=(.4,.2),color=[0,0,0,1]))
             if near_expiry(time_to_expiry(food[1])):
-                self.foodGrid.add_widget(Image(source = expiring_img,size_hint=(.2,.1)))
+                self.foodGrid.add_widget(Image(source = expiring_img,size_hint=(.2,.2)))
             elif time_to_expiry(food[1]) == "Expired":
-                self.foodGrid.add_widget(Image(source = expired_img,size_hint=(.2,.1)))
+                self.foodGrid.add_widget(Image(source = expired_img,size_hint=(.2,.2)))
             else:
-                self.foodGrid.add_widget(Label(text = "",size_hint=(.2,.1),color=[0,0,0,1]))
+                self.foodGrid.add_widget(Label(text = "",size_hint=(.2,.2),color=[0,0,0,1]))
+            
         # Make sure the height is such that there is something to scroll.
         self.foodGrid.bind(minimum_height = self.foodGrid.setter('height'))
         self.scrollView.add_widget(self.foodGrid)
@@ -214,7 +218,7 @@ class FoodScreen(Screen):
         self.mainGrid.add_widget(self.headers)
         self.mainGrid.add_widget(self.scrollView)
         self.mainGrid.add_widget(self.footer)
-        self.add_widget(Image(source = background_img,size_hint=(1,1),keep_ratio = False,allow_stretch=True))
+        self.add_widget(Image(source = background_img, size_hint=(1,1),keep_ratio = False,allow_stretch=True))
         self.add_widget(self.mainGrid)
 
     def remove_buzzer(self,instance,value):
@@ -222,12 +226,15 @@ class FoodScreen(Screen):
         self.footer.remove_widget(self.addButton)
         self.footer.add_widget(self.homeButton)
         self.footer.add_widget(self.addButton)
+        
+    def update_highlight(self,instance, value):
+        instance.rect.pos = instance.pos
+        instance.rect.size = instance.size
 
 
 
 
-
-
+                
 class AddScreen(Screen):
     validList = [False] * 2
     validateLabelList = []
