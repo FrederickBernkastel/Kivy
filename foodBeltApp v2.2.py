@@ -446,7 +446,31 @@ class ValidateLabel(Label):
                 self.text = "ddmmyy" 
             else:
                 self.text == "Error in input"
-            
+                
+class RemoveButton(Button):
+    pressed = False
+    def on_touch_down(self,touch):
+        if self.collide_point(*touch.pos):
+            self.pressed = True
+            return True
+        return super(RemoveButton, self).on_touch_down(touch)
+    def on_touch_up(self,touch):
+        if self.pressed:
+            self.pressed = False
+            for item in food_list[:]: 
+                if time_to_expiry(item[1]) == 'Expired':
+                    food_list.remove(item)
+                    update_firebase()
+            sm.transition.direction = 'down'
+            sm.current = "blank"
+            sm.remove_widget(sm.get_screen("food"))
+            sm.add_widget(FoodScreen())
+            sm.transition.direction = 'up'
+            sm.current = "food"
+            return True
+        return super(RemoveButton,self).on_touch_up(touch)
+
+#Who is the master of button now?
 
 ################################# Classes #####################################
 
