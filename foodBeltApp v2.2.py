@@ -457,9 +457,9 @@ class RemoveButton(Button):
     def on_touch_up(self,touch):
         if self.pressed:
             self.pressed = False
-            for item in food_list[:]: 
-                if time_to_expiry(item[1]) == 'Expired':
-                    food_list.remove(item)
+            for i in range(len(food_list)-1, -1, -1):
+                if time_to_expiry(food_list[i][1]) == 'Expired':
+                    food_list.pop(i)
                     update_firebase()
             sm.transition.direction = 'down'
             sm.current = "blank"
@@ -469,8 +469,6 @@ class RemoveButton(Button):
             sm.current = "food"
             return True
         return super(RemoveButton,self).on_touch_up(touch)
-
-#Who is the master of button now?
 
 ################################# Classes #####################################
 
